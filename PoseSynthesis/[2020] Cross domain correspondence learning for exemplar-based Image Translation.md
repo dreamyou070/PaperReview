@@ -10,7 +10,7 @@ segmentation map 이나 edge map, pose keypoint 와 같은 조건과 exemple 에
 image classificatino task 에서 사전 학습된 VGG 와 같은 모델을 사용하여 스타일 이미지와 조건 이미지의 공통 domain 을 이용하는 방법을 취한다. (마치 CLIP 이 text, image 의 공통 공간을 이용하는 것처럼) 그런데 이런 사전 학습된 모델은 mask 와 같은 것을 표현하는 어려움을 기존 연구에서는 예제 이미지를 semantic region 으로 따로 분리하고, 다른 부분을 합성하는 것을 학습한다. 하지만 이러한 방법들은 범용적이지 못하다는 한계가 있다. cross-domain 이미지를 위한 dense semantic 상응을 학습하고자 하며, 이를 이용해서 이미지 전이에 활용하고자 한다. 이는 약한 지도 학습이다. 왜냐하면 우리는 correspondence annotation 도 없고, ground truth 도 없기 때문에 사실상 약한 지도학습이라는 것에 강조를 둔다. 네트워크는 크게 2개로 구성된다.
 1) Cross- domain correspondence Network : 서로 다른 domain 의 이미지를 중간 domain 에 두어서, 각 이미지에 어울리는 dense 를 만들 수 있다.
 2) Translation network : 공간적으로 다양한 denormalization block 을 이용해서 점진적으로 output 을 합성한다. 
-<hr/>
+<hr/>   
 
 # 2. Approach
 ### 2.1 cross domaincorrespondence network
@@ -33,8 +33,21 @@ network 를 통과한 결과는 정답 이미지와 pixel 정보가 동일하다
 ![image](https://github.com/dreamyou070/PaperReview/assets/68425947/f7bb9892-dcd3-41f0-9863-e53833b4e0ff)
 x 와 y 의 domain 을 변경한 후의 latent 가 같도록 한다.   
 #### (3) exemplar translation loss   
-  [1] perceptual loss : 변형 이후의 이미지와 정답 이미지의 semantic 이 같다는 목적으로, VGG 에서 deep 한 feature 만을 사용한다.
-  [2] contextual loss : 
+  [1] perceptual loss : 변형 이후의 이미지와 정답 이미지의 semantic 이 같다는 목적으로, VGG 에서 deep 한 feature 만을 사용한다.   
+  [2] contextual loss : 변경하기 전과 후는 전체적인 스타일이 같아야 한다는 목적으로 만들어지며, VGG 에서 shallow 한 feature 만을 사용한다.   
+#### (4) Correspondence regularization   
+변형을 하기 전의 vector 는 정답과 같아야 한다는 목적에서 만들어진 것이다.
+#### (5) Adversarial loss   
+GAN 의 구조를 이용하는 만큼 기본 loss 를 사용한다.
+   
+# 3. Experiments   
+학습에 사용한 dataset 은   
+(1) ADE20k   
+(2) ADE20k-outdoor   
+(3) CelebA-HQ : face image   
+(4) Deepfashion : 몸 전체 이미지   
+이다.
+
 
 
 
