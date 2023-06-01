@@ -14,3 +14,6 @@ image classificatino task 에서 사전 학습된 VGG 와 같은 모델을 사�
 
 # 2. Approach
 ### 2.1 cross domaincorrespondence network
+VGG network 와 같은 경우 pixel image 의 잠재 공간은 잘 형성해 주지만 semantic map 와 같은 것은 형성을 못한다. 이에, common space, S 를 형성하기 위해서 다른 전략을 사용한다.   
+input image 는 F(A→S) network 에 의해서 latnet 로 표현되고, exemplar 은 F(B→S) 에 의해서 latent 로 표현된다.   
+각 Feature 은 similarity 를 통해서 일치가 되게 학습되는데 이때 사용하는 방법이 *Correlation Matrix*이다.
