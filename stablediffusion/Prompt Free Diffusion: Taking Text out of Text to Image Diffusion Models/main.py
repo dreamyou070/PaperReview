@@ -33,21 +33,21 @@ def load_sd_from_file(target):
 
 class prompt_free_diffusion(object):
 
-    def __init__(self,fp16=False,   # True
-                 tag_ctx=None,      # '--tag_ctx', default = 'SeeCoder'
-                 tag_diffuser=None, # '--tag_diffuser', default='Deliberate-v2.0'
-                 tag_ctl=None,):#      # '--tag_ctl', default='canny'
-
+    def __init__(self,fp16=False,        # True
+                 tag_ctx=None,           # '--tag_ctx', default = 'SeeCoder'
+                 tag_diffuser=None,      # '--tag_diffuser', default='Deliberate-v2.0'
+                 tag_ctl=None,):         # '--tag_ctl', default='canny'
         self.tag_diffuser = tag_diffuser # '--tag_diffuser', default='Deliberate-v2.0'
         self.tag_ctl = tag_ctl           # '--tag_ctl', default='canny'
         self.strict_sd = True            # True
-
         # --------------------------------------------------------------------------------------------------------------------------------------------------
-        # 1.1 get config file from the file (yaml file)
+        # 1.1 get config file from the file (yaml file) (prompt free diffuser)
         cfgm = model_cfg_bank()('pfd_seecoder_with_controlnet')    # model config bank and get config of pfd_seecoder_with_controlnet
+        print(f'cfgm : {cfgm}')
 
         # 1.2 get model with the config file
         self.net = get_model()(cfgm)                               # model from pfd_seecoder_with_controlnet configuration
+
         # 1.3 vae model
         sdvae = os.path.join(base_dir,'pretrained/pfd/vae/sd-v2-0-base-autokl.pth')
         sdvae = torch.load(sdvae)
@@ -70,6 +70,7 @@ class prompt_free_diffusion(object):
         # 5. sampler
         self.sampler = DDIMSampler(self.net)
         self.net.eval()
+
 
     # --------------------------------------------------------------------------------------------------------------- #
     def load_ctx(self, tag):
@@ -118,68 +119,10 @@ class prompt_free_diffusion(object):
         self.tag_ctl = tag
         return tag
 
-    def inference(self, im, imctl, ctl_method, do_preprocess, h, w, ugscale, seed, tag_ctx, tag_diffuser, tag_ctl, ):
-        # 1. model checking ------------------------------------------------------------------------------------------
-        if tag_ctx != self.tag_ctx:
-            self.load_ctx(tag_ctx)
-        if tag_diffuser != self.tag_diffuser:
-            self.load_diffuser(tag_diffuser)
-        if tag_ctl != self.tag_ctl:
-            self.load_ctl(tag_ctl)
-        # 2. ------------------------------------------------------------------------------------------
-        n_samples = self.n_sample_image
-        sampler = self.sampler
-        device = self.net.device
-        w = w // 64 * 64
-        h = h // 64 * 64
-        if imctl is not None:
-            imctl = imctl.resize([w, h], Image.Resampling.BICUBIC)
-        craw = trans.ToTensor()(im)[None].to(device).to(self.dtype)
-        c = self.net.ctx_encode(craw, which='image').repeat(n_samples, 1, 1)
-        u = torch.zeros_like(c)
-        if tag_ctx in ["SeeCoder-Anime"]:
-            u = torch.load('assets/anime_ug.pth')[None].to(device).to(self.dtype)
-            pad = c.size(1) - u.size(1)
-            u = torch.cat([u, torch.zeros_like(u[:, 0:1].repeat(1, pad, 1))], axis=1)
-
-        # 3. control image (stgructure)
-        if tag_ctl != 'none':
-            ccraw = trans.ToTensor()(imctl)[None].to(device).to(self.dtype)
-            if do_preprocess:
-                cc = self.net.ctl.preprocess(ccraw, type=ctl_method, size=[h, w])
-                cc = cc.to(self.dtype)
-            else:
-                cc = ccraw
-        else:
-            cc = None
-        shape = [n_samples, self.image_latent_dim, h // 8, w // 8]
-
-        if seed < 0:
-            np.random.seed(int(time.time()))
-            torch.manual_seed(-seed + 100)
-        else:
-            np.random.seed(seed + 100)
-            torch.manual_seed(seed)
-
-        x, _ = sampler.sample(steps=self.ddim_steps,
-                              x_info={'type': 'image', },
-                              c_info={'type': 'image',
-                                      'conditioning': c,
-                                      'unconditional_conditioning': u,
-                                      'unconditional_guidance_scale': ugscale,
-                                      'control': cc},
-                              shape=shape,
-                              verbose=False,
-                              eta=self.ddim_eta)
-
-        ccout = [trans.ToPILImage()(i) for i in cc] if cc is not None else []
-        imout = self.net.vae_decode(x, which='image')
-        imout = [trans.ToPILImage()(i) for i in imout]
-        return imout + ccout
 
 def main(args) :
 
-    # --------------------------------------------------------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------------------------------------------------------------- #
     print(f'\nstep1. model')
     pfd_inference = prompt_free_diffusion(fp16=args.fp16,tag_ctx=args.tag_ctx,tag_diffuser=args.tag_diffuser,tag_ctl=args.tag_ctl)
     print(f' (1.1) model')
@@ -189,12 +132,14 @@ def main(args) :
     vae = model.vae['image']
     print(f' (1.3) seecoder')
     seecoder = model.ctx['image']
-    print(f' (1.4) canny edge detector')
-    control_net = model.ctl
-    print(f' (1.5) unet(diffuser)')
+    print(f'seecoder (swin transformer): {seecoder.__class__.__name__}')
+    print(f' (1.4) unet(diffuser)')
     unet = model.diffuser['image']
+    print(f' (1.5) control net (half unet)')
+    control_net = model.ctl
+    print(f'control_net : {control_net.__class__.__name__}')
 
-    # --------------------------------------------------------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------------------------------------------------------------- #
     print(f'\nstep2. precision')
     if args.fp16:
         model = model.half()
@@ -203,7 +148,7 @@ def main(args) :
     else:
         dtype = torch.float32
 
-    # --------------------------------------------------------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------------------------------------------------------------- #
     print(f'\nstep3. cross attention condition (classifier free guidance)')
     print(f' (3.1.1) pixel info (seecoder encoding, instead of text encoder) ')
     batch = args.n_sample_image
@@ -211,6 +156,7 @@ def main(args) :
     c_raw = trans.ToTensor()(pil_ref_img)[None].to(args.device).to(dtype)
     cond = seecoder.encode(c_raw)                                                   # like text encoder
     cond = cond.repeat(batch, 1, 1)
+    
     print(f' (3.1.2) unconditional (classifier free guidance)')
     un_cond = torch.zeros_like(cond).to(args.device).to(dtype)
     c_info = {'type': 'image',
@@ -270,11 +216,13 @@ def main(args) :
 
         x_in = torch.cat([x] * 2)
         t_in = torch.cat([ts] * 2)
-        c_in = torch.cat([c_info['unconditional_conditioning'], c_info['conditioning']])
-
+        c_in = torch.cat([c_info['unconditional_conditioning'],
+                          c_info['conditioning']])
         x_info['x'] = x_in
         c_info['c'] = c_in
         print(f'x_in : {x_in.shape} | t_in : {t_in.shape} | c_in : {c_in.shape}')
+        
+        
         with torch.no_grad() :
             e_t_uncond, e_t = model.apply_model(x_info,t_in,c_info).chunk(2)
         e_t = e_t_uncond + unconditional_guidance_scale * (e_t - e_t_uncond)
@@ -297,10 +245,9 @@ def main(args) :
         with torch.no_grad() :
             imout = model.vae_decode(x, which='image')
             imout = [trans.ToPILImage()(i) for i in imout][0]
-            save_dir = os.path.join(output_dir, f'latent_{ts.item()}.jpg')
+            save_dir = os.path.join(output_dir, f'man_{ts.item()}.jpg')
             imout.save(save_dir)
-
-
+    
 if __name__ == '__main__' :
     parser = argparse.ArgumentParser()
     # 1.
@@ -315,8 +262,8 @@ if __name__ == '__main__' :
     parser.add_argument('--ddim_eta', default=0.0, type=float)
     parser.add_argument('--image_latent_dim', default=4, type=int)
     # step2. image setting
-    parser.add_argument('--ref_img', default=r'assets/examples/astronautridinghouse-input.jpg', type=str)
-    parser.add_argument('--canny_img',default=r'assets/examples/astronautridinghouse-canny.png', type=str)
+    parser.add_argument('--ref_img', default=r'assets/examples/man_pixcel.jpg', type=str)
+    parser.add_argument('--canny_img',default=r'assets/examples/man_structure.png', type=str)
     parser.add_argument('--w', default=512, type=int)
     parser.add_argument('--h', default=512, type=int)
     # init_latent
