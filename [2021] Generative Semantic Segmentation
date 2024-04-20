@@ -1,0 +1,9 @@
+1. 연구 목적
+- 기존의 segmentation 은 input 이미지에 대한 segmentation map 을 결과로 얻는 방법으로 진행됨
+
+2. Method
+- VQVAE 의 image encoder, decoder 을 사용
+- maskage 를 이용해서 mask reconstruction
+
+3. Limitation 및 further study
+- diffusion 에서도 segmentation map 형성에 적용할 수 있는지 검토 가능성
