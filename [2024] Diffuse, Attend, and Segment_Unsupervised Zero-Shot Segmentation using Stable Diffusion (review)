@@ -1,5 +1,26 @@
+1. 연구의 목적
+diffusion 은 이미지 생성에 특화된 모델인데 이를 통해 표현 학습이 가능하다.
+디퓨전을 이용한 segmentation model 이 많이 없어서 본 논문에서는 시도해 본다고 밝히고 있다.
+
 2. 
 4개의 self attention 을 이용한다.
 여기서 segmentor 은 학습을 하는 객체는 아니고, segmentation 만 수행하는 역할을 한다.
 (1) weight ratio 의 설정
 weight rator 를 보면 resolution 이 클 수록 더 큰 가중치를 주고 있는 것을 알 수 있다.
+이런 weighted sum 을 통해서 통합된 하나의 attention map 을 가지게 된다. merged attention map shape = (64,64,64,64)
+
+3. iteratively class mapping
+merged attention map 의 (64,64,64,64) 는 하나의 map 이 4096 개의 다른 pixel 와의 관계도를 보여준다.
+이를 논문에서는 kl divergent 를 이용해서 유사도를 계산한다.
+low kl divergence = low distance = high similar
+이 때 유사도 점수가 0.9 이상인 경우만 두 픽셀이 같은 class 로 하며,
+그렇지 않은 경우에는 점점 지워 나가는 방식을 취한다.
+
+4. non max suppression
+non max suppression 은 classification 와 같이 생각하면 된다.
+이렇게 해서 image 에서 segmentation class 수 만큼 분류가 되게 된다.
+
+3번의 iteratively class mapping 과정의 아이디어가 독특하다고 생각한다.
+그리고 attention map 을 merging 하는 방식도 기존의 일반적인 방식에 비해서 weight 를 따로 준다는 점,
+resolution 을 한번에 up 시킨다는 점이 독특하다고 생각된다.
+polyp segmentation 에 유사한 상황을 적용해 볼 수 있을까??
