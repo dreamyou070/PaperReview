@@ -1,0 +1,5 @@
+2. 
+4개의 self attention 을 이용한다.
+여기서 segmentor 은 학습을 하는 객체는 아니고, segmentation 만 수행하는 역할을 한다.
+(1) weight ratio 의 설정
+weight rator 를 보면 resolution 이 클 수록 더 큰 가중치를 주고 있는 것을 알 수 있다.
